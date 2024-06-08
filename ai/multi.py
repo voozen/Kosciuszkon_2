@@ -1,55 +1,59 @@
+from flask import Flask, jsonify
+import cv2
 import os
 import threading
-
-from flask import Flask
 import cvzone
+from cvzone.ClassificationModule import Classifier
+from collections import Counter
 
 os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
-import cv2
-import numpy
-from cvzone.ClassificationModule import Classifier
 
-#bins
+app = Flask(__name__)
+
+# Inicjalizacja modelu i innych zasobów
+webcam = cv2.VideoCapture(0)
+classifier = Classifier('keras_model.h5', 'labels.txt')
 binsImgs = []
 imgPaht = 'images'
 pathList = os.listdir(imgPaht)
 for path in pathList:
-    binsImgs.append(cv2.imread(os.path.join(imgPaht,path),cv2.IMREAD_UNCHANGED))
-
+    binsImgs.append(cv2.imread(os.path.join(imgPaht, path), cv2.IMREAD_UNCHANGED))
 with open('labels.txt', 'r') as file:
     labels = [label.strip()[2:] for label in file.readlines()]
-print(labels)
 
-webcam = cv2.VideoCapture(0)
-classifier = Classifier('keras_model.h5','labels.txt')
+global_variable = 0
 
-app = Flask(__name__)
-@app.route('/take')
-def take():
-    return "Taked"
-
-def startFlask():
-    app.run()
 def webcamAi():
     while True:
         _, img = webcam.read()
-
-        imgResize = cv2.resize(img,(454,340))
+        imgResize = cv2.resize(img, (454, 340))
         imgBackground = cv2.imread('images/bg.png')
 
-        predection = classifier.getPrediction(img)
-        print(predection)
-        print(labels[predection[1]])
+        prediction = classifier.getPrediction(img)
+        #print(prediction)
+        print(labels[prediction[1]])
 
-        imgBackground = cvzone.overlayPNG(imgBackground,binsImgs[predection[1]],(909,127))
-
-        imgBackground[148:148+340,159:159+454] = imgResize
-        #cv2.imshow("Img", img)
-        cv2.imshow("Bg",imgBackground)
+        imgBackground = cvzone.overlayPNG(imgBackground, binsImgs[prediction[1]], (909, 127))
+        imgBackground[148:148 + 340, 159:159 + 454] = imgResize
+        cv2.imshow("Bg", imgBackground)
         cv2.waitKey(1)
 
-flask_thread = threading.Thread(target=startFlask)
-webcam_thread = threading.Thread(target=webcamAi)
+def take_10_predictions():
+    predictions = []
+    for _ in range(10):
+        _, img = webcam.read()
+        prediction = classifier.getPrediction(img)
+        predictions.append(labels[prediction[1]])
+        print(predictions)
+    return predictions
 
-flask_thread.start()
-webcam_thread.start()
+@app.route('/take')
+def take():
+    predictions = take_10_predictions()
+    typeOfBin = Counter(predictions).most_common(1)[0][0]
+    return jsonify(typeOfBin)
+
+if __name__ == "__main__":
+    webcam_thread = threading.Thread(target=webcamAi)
+    webcam_thread.start()
+    app.run()
