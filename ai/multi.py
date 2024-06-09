@@ -31,7 +31,7 @@ def webcamAi():
 
         prediction = classifier.getPrediction(img)
         #print(prediction)
-        print(labels[prediction[1]])
+        # print(labels[prediction[1]])
 
         imgBackground = cvzone.overlayPNG(imgBackground, binsImgs[prediction[1]], (909, 127))
         imgBackground[148:148 + 340, 159:159 + 454] = imgResize
@@ -44,13 +44,14 @@ def take_10_predictions():
         _, img = webcam.read()
         prediction = classifier.getPrediction(img)
         predictions.append(labels[prediction[1]])
-        print(predictions)
+        # print(predictions)
     return predictions
 
 @app.route('/take')
 def take():
     predictions = take_10_predictions()
     typeOfBin = Counter(predictions).most_common(1)[0][0]
+    # print(typeOfBin)
     return jsonify(typeOfBin)
 
 if __name__ == "__main__":
